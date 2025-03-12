@@ -1,0 +1,57 @@
+body {
+  font-family: 'Encode Sans', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container-fluid {
+  margin-left: 100px;
+  padding: 0;
+  width: calc(100% - 100px);
+}
+
+main.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.form-group {
+  margin-bottom: 2rem;
+}
+
+.card {
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .container-fluid {
+    margin-left: 80px;
+    width: calc(100% - 80px);
+  }
+
+  .sidebar {
+    width: 80px; 
+  }
+}
+
+@media (max-width: 576px) {
+  .container-fluid {
+    margin-left: 60px;
+    width: calc(100% - 60px);
+  }
+
+  main.container {
+    padding: 1rem;
+  }
+
+  .sidebar {
+    width: 60px;
+  }
+}
