@@ -4,6 +4,8 @@ import { db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
+import 'katex/dist/katex.min.css';
+import { BlockMath, InlineMath } from 'react-katex';
 
 function TakeTest() {
   const { testId } = useParams();
@@ -74,7 +76,6 @@ function TakeTest() {
         <div>
           <h3 className="mb-4">{test.testName}</h3>
 
-          {/* Progress Bar */}
           <div className="mb-4">
             <p>
               Progress: {numCompleted} / {totalQuestions} completed
@@ -96,7 +97,7 @@ function TakeTest() {
           {test.questions.map((q, index) => (
             <div key={index} className="mb-4 border rounded p-3">
               <h5>{q.title}</h5>
-              <p>{q.text}</p>
+              <BlockMath math={q.text} />
 
               {q.imageUrl && (
                 <div className="mb-3 text-center">
@@ -120,7 +121,7 @@ function TakeTest() {
                     disabled={submitted}
                   />
                   <label className="form-check-label" htmlFor={`q${index}-opt${i}`}>
-                    {choice}
+                    <InlineMath math={choice} />
                   </label>
                 </div>
               ))}
