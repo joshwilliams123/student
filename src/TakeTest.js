@@ -14,7 +14,8 @@ function TakeTest() {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
-  const navigate = useNavigate();  
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -48,7 +49,7 @@ function TakeTest() {
 
     let totalCorrect = 0;
     test.questions.forEach((q, index) => {
-      const correctIndex = q.correctAnswer.toLowerCase().charCodeAt(0) - 97; 
+      const correctIndex = q.correctAnswer.toLowerCase().charCodeAt(0) - 97;
       if (answers[index] === correctIndex) {
         totalCorrect++;
       }
@@ -63,10 +64,55 @@ function TakeTest() {
   const progressPercent = totalQuestions > 0 ? (numCompleted / totalQuestions) * 100 : 0;
 
   const handleBackToTestViewer = () => {
-    navigate("/test-viewer"); 
+    navigate("/test-viewer");
+  };
+
+  const handleNext = () => {
+    if (currentQuestion < test.questions.length - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion(currentQuestion - 1);
+    }
+  };
+
+  const handleJumpToQuestion = (index) => {
+    setCurrentQuestion(index);
   };
 
   return (
+    <div className="d-flex" style={{ minHeight: "100vh" }}>
+      {test && (
+        <div className="sidebar-questions p-3">
+          <h5 className="mb-3">Questions</h5>
+          <ul className="list-unstyled">
+            {test.questions.map((q, idx) => {
+              const answered = typeof answers[idx] !== "undefined";
+              return (
+                <li
+                  key={idx}
+                  className={`sidebar-q-item mb-2 ${currentQuestion === idx ? "active" : ""}`}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleJumpToQuestion(idx)}
+                >
+                  <span className="sidebar-q-num">{idx + 1}</span>
+                  <span
+                    className={`sidebar-q-status ms-2 ${
+                      answered ? "answered" : "not-answered"
+                    }`}
+                  >
+                    {answered ? "Answered" : "Not Answered"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
     <div className="container">
       <h1 className="text-center my-4">Take Test</h1>
       {error && <p className="text-danger text-center">{error}</p>}
@@ -78,7 +124,7 @@ function TakeTest() {
 
           <div className="mb-4">
             <p>
-              Progress: {numCompleted} / {totalQuestions} completed
+              Progress: {Object.keys(answers).length} / {test.questions.length} completed
             </p>
             <div className="progress">
               <div
@@ -94,57 +140,71 @@ function TakeTest() {
             </div>
           </div>
 
-          {test.questions.map((q, index) => (
-            <div key={index} className="mb-4 border rounded p-3">
-              <h5>{q.title}</h5>
-              <BlockMath math={q.text} />
+          <div className="mb-4 border rounded p-3">
+            <h5>{test.questions[currentQuestion].title}</h5>
+            <BlockMath math={test.questions[currentQuestion].text} />
 
-              {q.imageUrl && (
-                <div className="mb-3 text-center">
-                  <img
-                    src={q.imageUrl}
-                    alt={`Question ${index + 1}`}
-                    style={{ maxWidth: "100%", height: "auto" }}
-                  />
-                </div>
-              )}
+            {test.questions[currentQuestion].imageUrl && (
+              <div className="mb-3 text-center">
+                <img
+                  src={test.questions[currentQuestion].imageUrl}
+                  alt={`Question ${currentQuestion + 1}`}
+                  style={{ maxWidth: "100%", height: "auto" }}
+                />
+              </div>
+            )}
 
-              {q.choices.map((choice, i) => (
-                <div key={i} className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name={`question-${index}`}
-                    id={`q${index}-opt${i}`}
-                    checked={answers[index] === i}
-                    onChange={() => handleAnswerSelect(index, i)}
-                    disabled={submitted}
-                  />
-                  <label className="form-check-label" htmlFor={`q${index}-opt${i}`}>
-                    <InlineMath math={choice} />
-                  </label>
-                </div>
-              ))}
-            </div>
-          ))}
+            {test.questions[currentQuestion].choices.map((choice, i) => (
+              <div key={i} className="form-check">
+                <input
+                  className="form-check-input"
+                  type="radio"
+                  name={`question-${currentQuestion}`}
+                  id={`q${currentQuestion}-opt${i}`}
+                  checked={answers[currentQuestion] === i}
+                  onChange={() => handleAnswerSelect(currentQuestion, i)}
+                  disabled={submitted}
+                />
+                <label className="form-check-label" htmlFor={`q${currentQuestion}-opt${i}`}>
+                  <InlineMath math={choice} />
+                </label>
+              </div>
+            ))}
+          </div>
 
-          {!submitted ? (
-            <div className="text-center">
+          <div className="d-flex justify-content-between">
+            <button
+              className="btn btn-secondary"
+              onClick={handlePrev}
+              disabled={currentQuestion === 0}
+            >
+              Previous
+            </button>
+            {currentQuestion < test.questions.length - 1 ? (
               <button
-                className="btn btn-success mt-4"
-                onClick={handleSubmit}
-                disabled={numCompleted !== totalQuestions}
+                className="btn btn-secondary"
+                onClick={handleNext}
+                disabled={typeof answers[currentQuestion] === "undefined"}
               >
-                Submit and Score
+                Next
               </button>
-              {numCompleted !== totalQuestions && (
-                <p className="text-warning mt-2">Please answer all questions before submitting.</p>
-              )}
-            </div>
-          ) : (
+            ) : (
+              !submitted && (
+                <button
+                  className="btn btn-success"
+                  onClick={handleSubmit}
+                  disabled={Object.keys(answers).length !== test.questions.length}
+                >
+                  Submit and Score
+                </button>
+              )
+            )}
+          </div>
+
+          {submitted && (
             <div className="text-center mt-4">
               <h4>
-                You scored {score} out of {totalQuestions}
+                You scored {score} out of {test.questions.length}
               </h4>
             </div>
           )}
@@ -159,6 +219,7 @@ function TakeTest() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
