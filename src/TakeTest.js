@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "./firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { setDoc, getDoc, doc } from "firebase/firestore";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
 import 'katex/dist/katex.min.css';
@@ -16,6 +17,11 @@ function TakeTest() {
   const [score, setScore] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [alreadyTaken, setAlreadyTaken] = useState(false);
+
+  const [questionTimes, setQuestionTimes] = useState([]);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -34,8 +40,41 @@ function TakeTest() {
       }
     };
 
+    const checkIfTaken = async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        setError("User not authenticated.");
+        setLoading(false);
+        return;
+      }
+      const scoreDoc = await getDoc(doc(db, "testScores", `${user.uid}_${testId}`));
+      if (scoreDoc.exists()) {
+        setAlreadyTaken(true);
+      }
+      setLoading(false);
+    };
+
     fetchTest();
+    checkIfTaken();
   }, [testId]);
+
+  useEffect(() => {
+    if (test && test.questions) {
+      setQuestionTimes(Array(test.questions.length).fill(0));
+      setQuestionStartTime(Date.now());
+    }
+  }, [test]);
+
+  const updateTimeForCurrentQuestion = () => {
+    const now = Date.now();
+    setQuestionTimes((prev) => {
+      const updated = [...prev];
+      updated[currentQuestion] += now - questionStartTime;
+      return updated;
+    });
+    setQuestionStartTime(now);
+  };
 
   const handleAnswerSelect = (questionIndex, selectedOption) => {
     setAnswers((prev) => ({
@@ -44,8 +83,20 @@ function TakeTest() {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!test || !test.questions) return;
+
+    const now = Date.now();
+    const updatedTimes = [...questionTimes];
+    updatedTimes[currentQuestion] += now - questionStartTime;
+
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      setError("User not authenticated.");
+      return;
+    }
+    const userId = user.uid;
 
     let totalCorrect = 0;
     test.questions.forEach((q, index) => {
@@ -57,6 +108,21 @@ function TakeTest() {
 
     setScore(totalCorrect);
     setSubmitted(true);
+
+    try {
+      await setDoc(
+        doc(db, "testScores", `${userId}_${testId}`),
+        {
+          userId,
+          testId,
+          score: totalCorrect,
+          timestamp: Date.now(),
+          questionTimes: updatedTimes, 
+        }
+      );
+    } catch (err) {
+      console.error("Error saving score:", err);
+    }
   };
 
   const numCompleted = Object.keys(answers).length;
@@ -68,20 +134,38 @@ function TakeTest() {
   };
 
   const handleNext = () => {
+    updateTimeForCurrentQuestion();
     if (currentQuestion < test.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     }
   };
 
   const handlePrev = () => {
+    updateTimeForCurrentQuestion();
     if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
     }
   };
 
   const handleJumpToQuestion = (index) => {
+    updateTimeForCurrentQuestion();
     setCurrentQuestion(index);
   };
+
+  if (loading) {
+    return <div className="container text-center mt-5">Loading...</div>;
+  }
+
+  if (alreadyTaken) {
+    return (
+      <div className="container text-center mt-5">
+        <h2>You have already taken this test.</h2>
+        <button className="btn btn-primary mt-3" onClick={() => navigate("/test-viewer")}>
+          Return to Test Viewer Page
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="d-flex" style={{ minHeight: "100vh" }}>
@@ -100,9 +184,8 @@ function TakeTest() {
                 >
                   <span className="sidebar-q-num">{idx + 1}</span>
                   <span
-                    className={`sidebar-q-status ms-2 ${
-                      answered ? "answered" : "not-answered"
-                    }`}
+                    className={`sidebar-q-status ms-2 ${answered ? "answered" : "not-answered"
+                      }`}
                   >
                     {answered ? "Answered" : "Not Answered"}
                   </span>
@@ -113,113 +196,113 @@ function TakeTest() {
         </div>
       )}
 
-    <div className="container">
-      <h1 className="text-center my-4">Take Test</h1>
-      {error && <p className="text-danger text-center">{error}</p>}
-      {!test ? (
-        <p className="text-center">Loading...</p>
-      ) : (
-        <div>
-          <h3 className="mb-4">{test.testName}</h3>
+      <div className="container">
+        <h1 className="text-center my-4">Take Test</h1>
+        {error && <p className="text-danger text-center">{error}</p>}
+        {!test ? (
+          <p className="text-center">Loading...</p>
+        ) : (
+          <div>
+            <h3 className="mb-4">{test.testName}</h3>
 
-          <div className="mb-4">
-            <p>
-              Progress: {Object.keys(answers).length} / {test.questions.length} completed
-            </p>
-            <div className="progress">
-              <div
-                className="progress-bar"
-                role="progressbar"
-                style={{ width: `${progressPercent}%` }}
-                aria-valuenow={progressPercent}
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
-                {Math.round(progressPercent)}%
+            <div className="mb-4">
+              <p>
+                Progress: {Object.keys(answers).length} / {test.questions.length} completed
+              </p>
+              <div className="progress">
+                <div
+                  className="progress-bar"
+                  role="progressbar"
+                  style={{ width: `${progressPercent}%` }}
+                  aria-valuenow={progressPercent}
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  {Math.round(progressPercent)}%
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mb-4 border rounded p-3">
-            <h5>{test.questions[currentQuestion].title}</h5>
-            <BlockMath math={test.questions[currentQuestion].text} />
+            <div className="mb-4 border rounded p-3">
+              <h5>{test.questions[currentQuestion].title}</h5>
+              <BlockMath math={test.questions[currentQuestion].text} />
 
-            {test.questions[currentQuestion].imageUrl && (
-              <div className="mb-3 text-center">
-                <img
-                  src={test.questions[currentQuestion].imageUrl}
-                  alt={`Question ${currentQuestion + 1}`}
-                  style={{ maxWidth: "100%", height: "auto" }}
-                />
-              </div>
-            )}
+              {test.questions[currentQuestion].imageUrl && (
+                <div className="mb-3 text-center">
+                  <img
+                    src={test.questions[currentQuestion].imageUrl}
+                    alt={`Question ${currentQuestion + 1}`}
+                    style={{ maxWidth: "100%", height: "auto" }}
+                  />
+                </div>
+              )}
 
-            {test.questions[currentQuestion].choices.map((choice, i) => (
-              <div key={i} className="form-check">
-                <input
-                  className="form-check-input"
-                  type="radio"
-                  name={`question-${currentQuestion}`}
-                  id={`q${currentQuestion}-opt${i}`}
-                  checked={answers[currentQuestion] === i}
-                  onChange={() => handleAnswerSelect(currentQuestion, i)}
-                  disabled={submitted}
-                />
-                <label className="form-check-label" htmlFor={`q${currentQuestion}-opt${i}`}>
-                  <InlineMath math={choice} />
-                </label>
-              </div>
-            ))}
-          </div>
+              {test.questions[currentQuestion].choices.map((choice, i) => (
+                <div key={i} className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    name={`question-${currentQuestion}`}
+                    id={`q${currentQuestion}-opt${i}`}
+                    checked={answers[currentQuestion] === i}
+                    onChange={() => handleAnswerSelect(currentQuestion, i)}
+                    disabled={submitted}
+                  />
+                  <label className="form-check-label" htmlFor={`q${currentQuestion}-opt${i}`}>
+                    <InlineMath math={choice} />
+                  </label>
+                </div>
+              ))}
+            </div>
 
-          <div className="d-flex justify-content-between">
-            <button
-              className="btn btn-secondary"
-              onClick={handlePrev}
-              disabled={currentQuestion === 0}
-            >
-              Previous
-            </button>
-            {currentQuestion < test.questions.length - 1 ? (
+            <div className="d-flex justify-content-between">
               <button
                 className="btn btn-secondary"
-                onClick={handleNext}
-                disabled={typeof answers[currentQuestion] === "undefined"}
+                onClick={handlePrev}
+                disabled={currentQuestion === 0}
               >
-                Next
+                Previous
               </button>
-            ) : (
-              !submitted && (
+              {currentQuestion < test.questions.length - 1 ? (
                 <button
-                  className="btn btn-success"
-                  onClick={handleSubmit}
-                  disabled={Object.keys(answers).length !== test.questions.length}
+                  className="btn btn-secondary"
+                  onClick={handleNext}
+                  disabled={typeof answers[currentQuestion] === "undefined"}
                 >
-                  Submit and Score
+                  Next
                 </button>
-              )
-            )}
-          </div>
-
-          {submitted && (
-            <div className="text-center mt-4">
-              <h4>
-                You scored {score} out of {test.questions.length}
-              </h4>
+              ) : (
+                !submitted && (
+                  <button
+                    className="btn btn-success"
+                    onClick={handleSubmit}
+                    disabled={Object.keys(answers).length !== test.questions.length}
+                  >
+                    Submit and Score
+                  </button>
+                )
+              )}
             </div>
-          )}
 
-          <div className="text-center mt-4">
-            <button
-              className="btn btn-primary"
-              onClick={handleBackToTestViewer}
-            >
-              Return to Test Viewer Page
-            </button>
+            {submitted && (
+              <div className="text-center mt-4">
+                <h4>
+                  You scored {score} out of {test.questions.length}
+                </h4>
+              </div>
+            )}
+
+            <div className="text-center mt-4">
+              <button
+                className="btn btn-primary"
+                onClick={handleBackToTestViewer}
+              >
+                Return to Test Viewer Page
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </div>
   );
 }

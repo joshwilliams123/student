@@ -49,7 +49,7 @@ const Login = () => {
           setError("Incorrect class name. Please try again.");
         }
       } else {
-        setError("User data not found. Please contact support.");
+        setError("Invalid user credentials.");
       }
     } catch (err) {
       setError("Invalid login credentials. Please try again.");

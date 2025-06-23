@@ -6,6 +6,8 @@ import {
   query,
   where,
 } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getDoc, doc } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
@@ -14,21 +16,10 @@ function TestViewer() {
   const [tests, setTests] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [error, setError] = useState("");
-
-  const getClassIdByName = (name) => {
-    const found = allClasses.find(
-      (cls) => cls.name === name || cls.className === name
-    );
-    return found ? found.id : null;
-  };
-
-  const getClassNameById = (id) => {
-    const found = allClasses.find((cls) => cls.id === id);
-    return found ? found.name || found.className : "Unknown Class";
-  };
+  const [scores, setScores] = useState({});
 
   useEffect(() => {
-    const fetchTests = async () => {
+    const fetchTestsAndScores = async () => {
       try {
         const storedClassName = localStorage.getItem("studentClassName");
         if (!storedClassName) {
@@ -65,13 +56,26 @@ function TestViewer() {
         }));
 
         setTests(testList);
+
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          const scoresObj = {};
+          for (const test of testList) {
+            const scoreDoc = await getDoc(doc(db, "testScores", `${user.uid}_${test.id}`));
+            if (scoreDoc.exists()) {
+              scoresObj[test.id] = scoreDoc.data().score;
+            }
+          }
+          setScores(scoresObj);
+        }
       } catch (error) {
         console.error("Error fetching tests: ", error);
         setError("Failed to fetch tests. Please try again later.");
       }
     };
 
-    fetchTests();
+    fetchTestsAndScores();
   }, []);
 
   return (
@@ -94,21 +98,28 @@ function TestViewer() {
             <h3>Available Tests</h3>
             <ul className="list-group">
               {tests.map((test) => (
-                <li key={test.id} className="list-group-item">
-                  <h5>{test.testName}</h5>
-                  <p>
-                    <strong>Class:</strong>{" "}
-                    {getClassNameById(test.publishedTo[0])}
-                  </p>
-                  <p>
-                    <strong>Questions:</strong> {test.questions?.length ?? 0}
-                  </p>
-                  <Link
-                    to={`/take-test/${test.id}`}
-                    className="btn btn-primary btn-sm"
-                  >
-                    Take Test
-                  </Link>
+                <li key={test.id} className="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <h5 className="mb-1">{test.testName}</h5>
+                    <p className="mb-1">
+                      <strong>Questions:</strong> {test.questions?.length ?? 0}
+                    </p>
+                  </div>
+                  <div>
+                    {scores[test.id] !== undefined ? (
+                      <span className="badge bg-success fs-6" style={{ fontSize: "1rem", fontFamily: "inherit", padding: "0.6em 1em" }}>
+                        Scored {scores[test.id]}/{test.questions?.length ?? 0}
+                      </span>
+                    ) : (
+                      <Link
+                        to={`/take-test/${test.id}`}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontFamily: "inherit", fontWeight: 500, padding: "0.6em 1.2em", fontSize: "1rem" }}
+                      >
+                        Take Test
+                      </Link>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
