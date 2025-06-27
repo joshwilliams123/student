@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "./firebase";
 import { getAuth } from "firebase/auth";
-import { setDoc, getDoc, doc } from "firebase/firestore";
+import { setDoc, getDoc, doc, collection, getDocs } from "firebase/firestore";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
 import 'katex/dist/katex.min.css';
@@ -22,6 +22,7 @@ function TakeTest() {
 
   const [questionTimes, setQuestionTimes] = useState([]);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [classId, setClassId] = useState("");
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -55,8 +56,27 @@ function TakeTest() {
       setLoading(false);
     };
 
+    const fetchClassId = async () => {
+      const storedClassName = localStorage.getItem("studentClassName");
+      if (!storedClassName) return;
+      try {
+        const classSnapshot = await getDocs(collection(db, "classes"));
+        const classDoc = classSnapshot.docs.find(
+          (doc) =>
+            doc.data().className === storedClassName ||
+            doc.data().name === storedClassName
+        );
+        if (classDoc) {
+          setClassId(classDoc.id);
+        }
+      } catch (err) {
+        console.error("Error fetching class ID:", err);
+      }
+    };
+
     fetchTest();
     checkIfTaken();
+    fetchClassId();
   }, [testId]);
 
   useEffect(() => {
@@ -97,6 +117,7 @@ function TakeTest() {
       return;
     }
     const userId = user.uid;
+    const userEmail = user.email || "";
 
     let totalCorrect = 0;
     test.questions.forEach((q, index) => {
@@ -109,15 +130,28 @@ function TakeTest() {
     setScore(totalCorrect);
     setSubmitted(true);
 
+    let className = "";
+    if (test.className) {
+      className = test.className;
+    } else if (test.name) {
+      className = test.name;
+    } else {
+      className = localStorage.getItem("studentClassName") || "";
+    }
+
     try {
       await setDoc(
         doc(db, "testScores", `${userId}_${testId}`),
         {
           userId,
+          userEmail,
           testId,
+          testTitle: test.testName || "",
           score: totalCorrect,
           timestamp: Date.now(),
-          questionTimes: updatedTimes, 
+          questionTimes: updatedTimes,
+          className: className,
+          classId: classId, 
         }
       );
     } catch (err) {
