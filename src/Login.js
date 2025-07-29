@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "./firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ const Login = () => {
   const [className, setClassName] = useState(""); 
   const [classOptions, setClassOptions] = useState([]);
   const [error, setError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
 
   const navigate = useNavigate();
 
@@ -56,6 +57,21 @@ const Login = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setResetMessage("");
+    setError("");
+    if (!email) {
+      setError("Please enter your email to reset your password.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetMessage("Password reset email sent! Please check your inbox.");
+    } catch (err) {
+      setError("Failed to send password reset email. Please check your email address.");
+    }
+  };
+
   return (
     <div>
       <header>
@@ -68,11 +84,9 @@ const Login = () => {
 
       <main>
         <div className="container">
-          <div className="text-center mb-4">
-            <h2>Sign In</h2>
-          </div>
 
           {error && <p className="text-danger text-center">{error}</p>}
+          {resetMessage && <p className="text-success text-center">{resetMessage}</p>}
 
           <div className="w-50 mx-auto">
             <form onSubmit={handleLogin}>
@@ -100,7 +114,7 @@ const Login = () => {
                 />
               </div>
 
-              <div className="mb-3">
+              <div className="mb-3 mt-4">
                 <label className="form-label">Select Class</label>
                 <select
                   className="form-control"
@@ -118,6 +132,24 @@ const Login = () => {
               <div className="text-center">
                 <button type="submit" className="btn btn-primary">Login</button>
               </div>
+
+              <div style={{ height: "16px" }}></div>
+
+              <div className="mb-3 text-center">
+                <small className="text-muted">
+                  Forgot your password? Enter your email above and click below to receive a reset link.
+                </small>
+              </div>
+              <div className="text-center">
+                <button
+                  type="button"
+                  className="btn btn-outline-danger"
+                  onClick={handleForgotPassword}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
             </form>
           </div>
         </div>
