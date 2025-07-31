@@ -120,11 +120,20 @@ function TakeTest() {
     const userEmail = user.email || "";
 
     let totalCorrect = 0;
-    test.questions.forEach((q, index) => {
+
+    const answerDetails = test.questions.map((q, index) => {
       const correctIndex = q.correctAnswer.toLowerCase().charCodeAt(0) - 97;
-      if (answers[index] === correctIndex) {
-        totalCorrect++;
-      }
+      const selectedIndex = answers[index];
+      return {
+        questionIndex: index,
+        selectedIndex: typeof selectedIndex !== "undefined" ? selectedIndex : null,
+        selectedText:
+          typeof selectedIndex !== "undefined" && q.choices[selectedIndex]
+            ? q.choices[selectedIndex]
+            : null,
+        correctIndex: correctIndex,
+        correctText: q.choices[correctIndex] || null,
+      };
     });
 
     setScore(totalCorrect);
@@ -151,7 +160,8 @@ function TakeTest() {
           timestamp: Date.now(),
           questionTimes: updatedTimes,
           className: className,
-          classId: classId, 
+          classId: classId,
+          answerDetails,
         }
       );
     } catch (err) {
