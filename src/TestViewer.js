@@ -223,7 +223,12 @@ function TestViewer() {
               <p className="text-center">No tests found for your class.</p>
             ) : (
               <div>
-                <h3>Available Tests</h3>
+                <h3>
+                  Available Tests for{" "}
+                  <span className="text-primary">
+                    {selectedClass}
+                  </span>
+                </h3>
                 <ul className="list-group">
                   {tests.map((test) => (
                     <li key={test.id} className="list-group-item d-flex justify-content-between align-items-center">
