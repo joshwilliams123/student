@@ -16,23 +16,24 @@ import "./css/styles.css";
 
 function TestViewer() {
   const [tests, setTests] = useState([]);
-  const [allClasses, setAllClasses] = useState([]);
+  const [allClasses, setAllClasses] = useState([]); // eslint-disable-next-line
   const [error, setError] = useState("");
   const [scores, setScores] = useState({});
   const [showClassSelect, setShowClassSelect] = useState(false);
   const [showScheduleEdit, setShowScheduleEdit] = useState(false);
   const [userClasses, setUserClasses] = useState([]);
-  const [selectedClass, setSelectedClass] = useState(localStorage.getItem("studentClassName") || "");
   const [scheduleClasses, setScheduleClasses] = useState([]);
   const [scheduleOptions, setScheduleOptions] = useState([]);
+  const [selectedClass, setSelectedClass] = useState(localStorage.getItem("studentClassName") || "");
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchTestsAndScores = async () => {
+    const fetchData = async () => {
       try {
-        const storedClassName = localStorage.getItem("studentClassName");
-        if (!storedClassName) {
-          setError("Class name not found. Please log in again.");
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) {
+          setError("User not signed in.");
           return;
         }
 
@@ -42,59 +43,72 @@ function TestViewer() {
           ...doc.data(),
         }));
         setAllClasses(classList);
+        setScheduleOptions(classList.map(c => c.className || c.name));
 
-        const classId = classList.find(
-          (cls) =>
-            cls.name === storedClassName ||
-            cls.className === storedClassName
-        )?.id;
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const classes = userDoc.data().classes || [];
+          setUserClasses(classes);
+          setScheduleClasses(classes);
 
-        if (!classId) {
-          setError("No class found with your class name.");
-          return;
-        }
+          if (classes.length === 0) return;
 
-        const testQuery = query(
-          collection(db, "tests"),
-          where("publishedTo", "array-contains", classId)
-        );
-        const testSnapshot = await getDocs(testQuery);
-        const testList = testSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setTests(testList);
-
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          const scoresObj = {};
-          for (const test of testList) {
-            const scoreDoc = await getDoc(doc(db, "testScores", `${user.uid}_${test.id}`));
-            if (scoreDoc.exists()) {
-              scoresObj[test.id] = scoreDoc.data().score;
-            }
+          let storedClass = localStorage.getItem("studentClassName");
+          if (!storedClass || !classes.includes(storedClass)) {
+            storedClass = classes[0];
+            localStorage.setItem("studentClassName", storedClass);
+            setSelectedClass(storedClass);
           }
-          setScores(scoresObj);
 
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            setUserClasses(userDoc.data().classes || []);
-            setScheduleClasses(userDoc.data().classes || []);
-            setScheduleOptions(classList.map(c => c.className || c.name));
-          }
+          await fetchTestsForClass(storedClass, classList, user.uid);
         }
-      } catch (error) {
-        console.error("Error fetching tests: ", error);
+      } catch (err) {
+        console.error("Error fetching tests: ", err);
         setError("Failed to fetch tests. Please try again later.");
       }
     };
 
     if (!showClassSelect && !showScheduleEdit) {
-      fetchTestsAndScores();
+      fetchData();
     }
-  }, [showClassSelect, selectedClass, showScheduleEdit]);
+  }, [showClassSelect, showScheduleEdit]);
+
+  const fetchTestsForClass = async (className, classList, userId) => {
+    try {
+      const classId = classList.find(
+        (cls) => cls.name === className || cls.className === className
+      )?.id;
+
+      if (!classId) {
+        setError("No class found with your class name.");
+        return;
+      }
+
+      const testQuery = query(
+        collection(db, "tests"),
+        where("publishedTo", "array-contains", classId)
+      );
+      const testSnapshot = await getDocs(testQuery);
+      const testList = testSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setTests(testList);
+
+      const scoresObj = {};
+      for (const test of testList) {
+        const scoreDoc = await getDoc(doc(db, "testScores", `${userId}_${test.id}`));
+        if (scoreDoc.exists()) {
+          scoresObj[test.id] = scoreDoc.data().score;
+        }
+      }
+      setScores(scoresObj);
+    } catch (err) {
+      console.error("Error fetching tests for class: ", err);
+      setError("Failed to load tests for this class.");
+    }
+  };
 
   const handleLogout = async () => {
     const auth = getAuth();
@@ -107,22 +121,24 @@ function TestViewer() {
     setShowClassSelect(true);
   };
 
-  const handleSelectClass = () => {
+  const handleSelectClass = async () => {
     if (selectedClass) {
       localStorage.setItem("studentClassName", selectedClass);
       setShowClassSelect(false);
       setError("");
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (user) {
+        await fetchTestsForClass(selectedClass, allClasses, user.uid);
+      }
     }
   };
 
-  const handleEditSchedule = () => {
-    setShowScheduleEdit(true);
-  };
-
   const handleScheduleChange = (cls) => {
-    setScheduleClasses(prev =>
+    setScheduleClasses((prev) =>
       prev.includes(cls)
-        ? prev.filter(c => c !== cls)
+        ? prev.filter((c) => c !== cls)
         : [...prev, cls]
     );
   };
@@ -136,13 +152,33 @@ function TestViewer() {
       });
       setUserClasses(scheduleClasses);
       setShowScheduleEdit(false);
-      if (!scheduleClasses.includes(selectedClass)) {
-        setSelectedClass("");
+
+      if (scheduleClasses.length > 0) {
+        localStorage.setItem("studentClassName", scheduleClasses[0]);
+        setSelectedClass(scheduleClasses[0]);
+      } else {
         localStorage.removeItem("studentClassName");
-        setShowClassSelect(true);
+        setSelectedClass("");
       }
     }
   };
+
+  if (userClasses.length === 0 && !showScheduleEdit) {
+    return (
+      <div className="container text-center mt-4">
+        <h4>You are currently not enrolled in any classes.</h4>
+        <p>Please select classes to take tests for.</p>
+        <button className="btn btn-primary" onClick={() => setShowScheduleEdit(true)}>
+          Select Classes
+        </button>
+        <div className="mt-3">
+          <button className="btn btn-danger" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid">
@@ -155,8 +191,6 @@ function TestViewer() {
       </header>
 
       <main className="container">
-        {error && <p className="text-danger text-center">{error}</p>}
-
         {showScheduleEdit ? (
           <div className="w-50 mx-auto mt-4">
             <label className="form-label">Edit Your Class Schedule</label>
@@ -200,7 +234,6 @@ function TestViewer() {
               className="form-control"
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              required
             >
               <option value="">-- Choose a Class --</option>
               {userClasses.map((cls, idx) => (
@@ -219,35 +252,37 @@ function TestViewer() {
           </div>
         ) : (
           <>
-            {tests.length === 0 && !error ? (
+            {tests.length === 0 ? (
               <p className="text-center">No tests found for your class.</p>
             ) : (
               <div>
                 <h3>
                   Available Tests for{" "}
-                  <span className="text-primary">
-                    {selectedClass}
-                  </span>
+                  <span className="text-primary">{selectedClass}</span>
                 </h3>
                 <ul className="list-group">
                   {tests.map((test) => (
-                    <li key={test.id} className="list-group-item d-flex justify-content-between align-items-center">
+                    <li
+                      key={test.id}
+                      className="list-group-item d-flex justify-content-between align-items-center"
+                    >
                       <div>
                         <h5 className="mb-1">{test.testName}</h5>
                         <p className="mb-1">
-                          <strong>Questions:</strong> {test.questions?.length ?? 0}
+                          <strong>Questions:</strong>{" "}
+                          {test.questions?.length ?? 0}
                         </p>
                       </div>
                       <div>
                         {scores[test.id] !== undefined ? (
-                          <span className="badge bg-success fs-6" style={{ fontSize: "1rem", fontFamily: "inherit", padding: "0.6em 1em" }}>
+                          <span className="badge bg-success fs-6" style={{ padding: "0.6em 1em" }}>
                             Scored {scores[test.id]}/{test.questions?.length ?? 0}
                           </span>
                         ) : (
                           <Link
                             to={`/take-test/${test.id}`}
                             className="btn btn-primary btn-sm"
-                            style={{ fontFamily: "inherit", fontWeight: 500, padding: "0.6em 1.2em", fontSize: "1rem" }}
+                            style={{ padding: "0.6em 1.2em", fontSize: "1rem" }}
                           >
                             Take Test
                           </Link>
@@ -262,8 +297,8 @@ function TestViewer() {
               <button className="btn btn-secondary" onClick={handleChangeClass}>
                 Change Class
               </button>
-              <button className="btn btn-info" onClick={handleEditSchedule}>
-                Change Class Schedule
+              <button className="btn btn-info" onClick={() => setShowScheduleEdit(true)}>
+                Edit Class Schedule
               </button>
               <button className="btn btn-danger" onClick={handleLogout}>
                 Logout

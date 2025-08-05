@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "./firebase";
-import { setDoc, doc, collection, getDocs } from "firebase/firestore";
+import React, { useState } from "react";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { auth, db, googleProvider } from "./firebase";
+import { setDoc, doc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
@@ -9,58 +9,48 @@ import "./css/styles.css";
 const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedClasses, setSelectedClasses] = useState([]);
-  const [classOptions, setClassOptions] = useState([]);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchClasses = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "classes"));
-        const classes = querySnapshot.docs.map(doc => doc.data().className || doc.data().name);
-        setClassOptions(classes);
-      } catch (err) {
-        console.error("Error fetching classes:", err);
-      }
-    };
-    fetchClasses();
-  }, []);
-
-  const handleClassChange = (cls) => {
-    setSelectedClasses(prev =>
-      prev.includes(cls)
-        ? prev.filter(c => c !== cls)
-        : [...prev, cls]
-    );
-  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccessMessage("");
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
-        classes: selectedClasses,
+        classes: []
       });
-      setSuccessMessage("Signup successful! Redirecting to login page...");
-      setEmail("");
-      setPassword("");
-      setSelectedClasses([]);
-      setTimeout(() => navigate("/"), 2000);
+
+      navigate("/test-viewer");
     } catch (err) {
       if (err.code === "auth/weak-password") {
-        setError("The password should be at least 6 characters.");
+        setError("Password must be at least 6 characters.");
       } else if (err.code === "auth/email-already-in-use") {
-        setError("This email is already in use. Try logging in.");
+        setError("Email already in use. Try logging in.");
       } else {
         setError(err.message);
       }
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setError("");
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        classes: []
+      }, { merge: true }); 
+
+      navigate("/test-viewer");
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -103,38 +93,38 @@ const Signup = () => {
                   required
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label">Select All Classes in Your Schedule</label>
-                <div>
-                  {classOptions.map((cls, idx) => (
-                    <div className="form-check" key={idx}>
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id={`class-${idx}`}
-                        value={cls}
-                        checked={selectedClasses.includes(cls)}
-                        onChange={() => handleClassChange(cls)}
-                      />
-                      <label className="form-check-label" htmlFor={`class-${idx}`}>
-                        {cls}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="text-center">
-                <button type="submit" className="btn btn-primary">Sign Up</button>
+              <div className="d-flex justify-content-center gap-3 mt-3">
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-fill"
+                  style={{ maxWidth: "220px" }}
+                >
+                  Sign Up
+                </button>
+                <button
+                  type="button"
+                  className="btn d-flex align-items-center justify-content-center flex-fill"
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#000",
+                    border: "1px solid #ccc",
+                    gap: "8px",
+                    maxWidth: "220px"
+                  }}
+                  onClick={handleGoogleSignup}
+                >
+                  <img
+                    src="/google.png"
+                    alt="Google logo"
+                    style={{ width: "24px", height: "24px" }}
+                  />
+                  Sign Up With Google
+                </button>
               </div>
             </form>
           </div>
         </div>
       </main>
-      {successMessage && (
-        <div className="alert alert-success fixed-bottom m-3" style={{ zIndex: 9999 }}>
-          <p className="text-center mb-0">{successMessage}</p>
-        </div>
-      )}
     </div>
   );
 };

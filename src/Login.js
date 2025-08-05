@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth, db } from "./firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithPopup
+} from "firebase/auth";
+import { auth, db, googleProvider } from "./firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
@@ -22,21 +26,48 @@ const Login = () => {
     setError("");
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const classes = userDoc.data().classes || [];
-        if (classes.length === 0) {
-          setError("No classes found for this user.");
-          return;
-        }
-        setUserClasses(classes);
-        setShowClassSelect(true);
-      } else {
-        setError("Invalid user credentials.");
-      }
+      await handlePostLogin(userCredential.user);
     } catch (err) {
       setError("Invalid login credentials. Please try again.");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          email: user.email,
+          classes: []
+        });
+      }
+
+      await handlePostLogin(user);
+    } catch (err) {
+      console.error("Google login failed:", err);
+      setError("Google sign-in failed. Please try again.");
+    }
+  };
+
+  const handlePostLogin = async (user) => {
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (userDoc.exists()) {
+      const classes = userDoc.data().classes || [];
+      setUserClasses(classes);
+
+      if (classes.length === 0) {
+        navigate("/test-viewer");
+      } else {
+        setShowClassSelect(true);
+      }
+    } else {
+      setError("User data not found.");
     }
   };
 
@@ -100,9 +131,36 @@ const Login = () => {
                     required
                   />
                 </div>
-                <div className="text-center">
-                  <button type="submit" className="btn btn-primary">Login</button>
+
+                <div className="d-flex justify-content-center gap-3 mt-3">
+                  <button
+                    type="submit"
+                    className="btn btn-primary flex-fill"
+                    style={{ maxWidth: "220px" }}
+                  >
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    className="btn d-flex align-items-center justify-content-center flex-fill"
+                    style={{
+                      backgroundColor: "#fff",
+                      color: "#000",
+                      border: "1px solid #ccc",
+                      gap: "8px",
+                      maxWidth: "220px"
+                    }}
+                    onClick={handleGoogleLogin}
+                  >
+                    <img
+                      src="/google.png"
+                      alt="Google logo"
+                      style={{ width: "24px", height: "24px" }}
+                    />
+                    Log In with Google
+                  </button>
                 </div>
+
                 <div style={{ height: "16px" }}></div>
                 <div className="mb-3 text-center">
                   <small className="text-muted">
