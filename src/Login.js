@@ -16,7 +16,7 @@ const Login = () => {
   const [userClasses, setUserClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState("");
   const [error, setError] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
+  const [success, setSuccess] = useState("");
   const [showClassSelect, setShowClassSelect] = useState(false);
 
   const navigate = useNavigate();
@@ -24,6 +24,7 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await handlePostLogin(userCredential.user);
@@ -34,6 +35,7 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     setError("");
+    setSuccess("");
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -72,15 +74,19 @@ const Login = () => {
   };
 
   const handleForgotPassword = async () => {
-    setResetMessage("");
     setError("");
+    setSuccess("");
     if (!email) {
       setError("Please enter your email to reset your password.");
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, email);
-      setResetMessage("Password reset email sent! Please check your inbox.");
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/login`
+      });
+      setSuccess(
+        `A password reset email has been sent to ${email}. Please check your inbox and return to the login page.`
+      );
     } catch (err) {
       setError("Failed to send password reset email. Please check your email address.");
     }
@@ -105,12 +111,12 @@ const Login = () => {
       <main>
         <div className="container">
           {error && <p className="text-danger text-center">{error}</p>}
-          {resetMessage && <p className="text-success text-center">{resetMessage}</p>}
+          {success && <p className="text-success text-center">{success}</p>}
+
           <div className="w-50 mx-auto">
             {!showClassSelect ? (
               <form onSubmit={handleLogin}>
-                <div className="mb-3">
-                  <label className="form-label">Email</label>
+                <div className="mb-3 d-flex align-items-center gap-2">
                   <input
                     type="email"
                     className="form-control"
@@ -119,9 +125,17 @@ const Login = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger"
+                    onClick={handleForgotPassword}
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
+
                 <div className="mb-3">
-                  <label className="form-label">Password</label>
                   <input
                     type="password"
                     className="form-control"
@@ -160,22 +174,6 @@ const Login = () => {
                     Log In with Google
                   </button>
                 </div>
-
-                <div style={{ height: "16px" }}></div>
-                <div className="mb-3 text-center">
-                  <small className="text-muted">
-                    Forgot your password? Enter your email above and click below to receive a reset link.
-                  </small>
-                </div>
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger"
-                    onClick={handleForgotPassword}
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
               </form>
             ) : (
               <div className="mb-3 mt-4">
@@ -188,7 +186,9 @@ const Login = () => {
                 >
                   <option value="">-- Choose a Class --</option>
                   {userClasses.map((cls, idx) => (
-                    <option key={idx} value={cls}>{cls}</option>
+                    <option key={idx} value={cls}>
+                      {cls}
+                    </option>
                   ))}
                 </select>
                 <div className="text-center mt-3">
