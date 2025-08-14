@@ -124,6 +124,11 @@ function TakeTest() {
     const answerDetails = test.questions.map((q, index) => {
       const correctIndex = q.correctAnswer.toLowerCase().charCodeAt(0) - 97;
       const selectedIndex = answers[index];
+
+      if (selectedIndex === correctIndex) {
+        totalCorrect++;
+      }
+
       return {
         questionIndex: index,
         selectedIndex: typeof selectedIndex !== "undefined" ? selectedIndex : null,
@@ -135,6 +140,7 @@ function TakeTest() {
         correctText: q.choices[correctIndex] || null,
       };
     });
+
 
     setScore(totalCorrect);
     setSubmitted(true);
@@ -271,20 +277,20 @@ function TakeTest() {
               <h5>{test.questions[currentQuestion].title}</h5>
               <BlockMath math={test.questions[currentQuestion].text} />
 
-              {test.questions[currentQuestion].imageUrl && (
+              {test.questions[currentQuestion].questionImageUrl && (
                 <div className="mb-3 text-center">
                   <img
-                    src={test.questions[currentQuestion].imageUrl}
+                    src={test.questions[currentQuestion].questionImageUrl}
                     alt={`Question ${currentQuestion + 1}`}
-                    style={{ maxWidth: "100%", height: "auto" }}
+                    style={{ maxWidth: "70%", height: "auto" }}
                   />
                 </div>
               )}
 
               {test.questions[currentQuestion].choices.map((choice, i) => (
-                <div key={i} className="form-check">
+                <div key={i} className="form-check d-flex align-items-center mb-2">
                   <input
-                    className="form-check-input"
+                    className="form-check-input me-2"
                     type="radio"
                     name={`question-${currentQuestion}`}
                     id={`q${currentQuestion}-opt${i}`}
@@ -292,12 +298,24 @@ function TakeTest() {
                     onChange={() => handleAnswerSelect(currentQuestion, i)}
                     disabled={submitted}
                   />
-                  <label className="form-check-label" htmlFor={`q${currentQuestion}-opt${i}`}>
+                  <label
+                    className="form-check-label d-flex align-items-center"
+                    htmlFor={`q${currentQuestion}-opt${i}`}
+                  >
                     <InlineMath math={choice} />
+                    {test.questions[currentQuestion].choiceImages &&
+                      test.questions[currentQuestion].choiceImages[i] && (
+                        <img
+                          src={test.questions[currentQuestion].choiceImages[i]}
+                          alt={`Choice ${i + 1}`}
+                          style={{ maxWidth: "100px", height: "auto", marginRight: "10px" }}
+                        />
+                      )}
                   </label>
                 </div>
               ))}
             </div>
+
 
             <div className="d-flex justify-content-between">
               <button
