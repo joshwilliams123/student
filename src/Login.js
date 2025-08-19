@@ -85,7 +85,7 @@ const Login = () => {
         url: `${window.location.origin}/login`
       });
       setSuccess(
-        `A password reset email has been sent to ${email}. Please check your inbox and return to the login page.`
+        `A password reset email has been sent to ${email}. Please check your inbox and return to the login page. Note: this email may be in your spam folder.`
       );
     } catch (err) {
       setError("Failed to send password reset email. Please check your email address.");
