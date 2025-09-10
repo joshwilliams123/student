@@ -7,6 +7,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./css/styles.css";
 import 'katex/dist/katex.min.css';
 import { BlockMath, InlineMath } from 'react-katex';
+import { Modal, Button } from "react-bootstrap";
 
 function TakeTest() {
   const { testId } = useParams();
@@ -19,28 +20,25 @@ function TakeTest() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [alreadyTaken, setAlreadyTaken] = useState(false);
-
   const [questionTimes, setQuestionTimes] = useState([]);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [classId, setClassId] = useState("");
+  const [showConfirmModal, setShowConfirmModal] = useState(true);
 
   useEffect(() => {
     const fetchTest = async () => {
       try {
         const docRef = doc(db, "tests", testId);
         const docSnap = await getDoc(docRef);
-
         if (docSnap.exists()) {
           setTest(docSnap.data());
         } else {
           setError("Test not found.");
         }
       } catch (error) {
-        console.error("Error fetching test:", error);
         setError("An error occurred while fetching the test.");
       }
     };
-
     const checkIfTaken = async () => {
       const auth = getAuth();
       const user = auth.currentUser;
@@ -55,7 +53,6 @@ function TakeTest() {
       }
       setLoading(false);
     };
-
     const fetchClassId = async () => {
       const storedClassName = localStorage.getItem("studentClassName");
       if (!storedClassName) return;
@@ -69,11 +66,8 @@ function TakeTest() {
         if (classDoc) {
           setClassId(classDoc.id);
         }
-      } catch (err) {
-        console.error("Error fetching class ID:", err);
-      }
+      } catch (err) {}
     };
-
     fetchTest();
     checkIfTaken();
     fetchClassId();
@@ -85,6 +79,27 @@ function TakeTest() {
       setQuestionStartTime(Date.now());
     }
   }, [test]);
+
+  useEffect(() => {
+    if (!submitted && !alreadyTaken && !loading && !showConfirmModal) {
+      const handleBeforeUnload = (e) => {
+        e.preventDefault();
+        e.returnValue = "";
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      const handlePopState = (e) => {
+        if (!submitted) {
+          window.history.pushState(null, "", window.location.href);
+        }
+      };
+      window.history.pushState(null, "", window.location.href);
+      window.addEventListener("popstate", handlePopState);
+      return () => {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.removeEventListener("popstate", handlePopState);
+      };
+    }
+  }, [submitted, alreadyTaken, loading, showConfirmModal]);
 
   const updateTimeForCurrentQuestion = () => {
     const now = Date.now();
@@ -105,11 +120,9 @@ function TakeTest() {
 
   const handleSubmit = async () => {
     if (!test || !test.questions) return;
-
     const now = Date.now();
     const updatedTimes = [...questionTimes];
     updatedTimes[currentQuestion] += now - questionStartTime;
-
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) {
@@ -118,17 +131,13 @@ function TakeTest() {
     }
     const userId = user.uid;
     const userEmail = user.email || "";
-
     let totalCorrect = 0;
-
     const answerDetails = test.questions.map((q, index) => {
       const correctIndex = q.correctAnswer.toLowerCase().charCodeAt(0) - 97;
       const selectedIndex = answers[index];
-
       if (selectedIndex === correctIndex) {
         totalCorrect++;
       }
-
       return {
         questionIndex: index,
         selectedIndex: typeof selectedIndex !== "undefined" ? selectedIndex : null,
@@ -140,11 +149,8 @@ function TakeTest() {
         correctText: q.choices[correctIndex] || null,
       };
     });
-
-
     setScore(totalCorrect);
     setSubmitted(true);
-
     let className = "";
     if (test.className) {
       className = test.className;
@@ -153,7 +159,6 @@ function TakeTest() {
     } else {
       className = localStorage.getItem("studentClassName") || "";
     }
-
     try {
       await setDoc(
         doc(db, "testScores", `${userId}_${testId}`),
@@ -170,9 +175,7 @@ function TakeTest() {
           answerDetails,
         }
       );
-    } catch (err) {
-      console.error("Error saving score:", err);
-    }
+    } catch (err) {}
   };
 
   const numCompleted = Object.keys(answers).length;
@@ -214,6 +217,35 @@ function TakeTest() {
           Return to Test Viewer Page
         </button>
       </div>
+    );
+  }
+
+  if (showConfirmModal && test) {
+    return (
+      <Modal show centered>
+        <Modal.Header>
+          <Modal.Title>Confirm Test</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            <strong>Test Name:</strong> {test.testName}
+            <br />
+            <strong>Class Name:</strong> {test.className || localStorage.getItem("studentClassName")}
+          </p>
+          <p className="text-danger">
+            <strong>Warning:</strong> Once you enter, you cannot leave this page until you finish and submit the test!
+          </p>
+          <p>Are you sure this is the correct test?</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={() => setShowConfirmModal(false)}>
+            Yes, Start Test
+          </Button>
+          <Button variant="secondary" onClick={() => navigate("/test-viewer")}>
+            No, Go Back
+          </Button>
+        </Modal.Footer>
+      </Modal>
     );
   }
 
@@ -316,7 +348,6 @@ function TakeTest() {
               ))}
             </div>
 
-
             <div className="d-flex justify-content-between">
               <button
                 className="btn btn-secondary"
@@ -351,17 +382,15 @@ function TakeTest() {
                 <h4>
                   You scored {score} out of {test.questions.length}
                 </h4>
+                <button
+                  className="btn btn-primary mt-3"
+                  onClick={handleBackToTestViewer}
+                >
+                  Return to Test Viewer Page
+                </button>
               </div>
             )}
 
-            <div className="text-center mt-4">
-              <button
-                className="btn btn-primary"
-                onClick={handleBackToTestViewer}
-              >
-                Return to Test Viewer Page
-              </button>
-            </div>
           </div>
         )}
       </div>
