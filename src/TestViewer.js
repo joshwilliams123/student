@@ -28,15 +28,14 @@ function TestViewer() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) {
-          setError("User not signed in.");
-          return;
-        }
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        setError("User not signed in.");
+        return;
+      }
 
+      try {
         const classSnapshot = await getDocs(collection(db, "classes"));
         const classList = classSnapshot.docs.map((doc) => ({
           id: doc.id,
@@ -66,11 +65,9 @@ function TestViewer() {
         console.error("Error fetching tests: ", err);
         setError("Failed to fetch tests. Please try again later.");
       }
-    };
+    });
 
-    if (!showClassSelect && !showScheduleEdit) {
-      fetchData();
-    }
+    return () => unsubscribe();
   }, [showClassSelect, showScheduleEdit]);
 
   const fetchTestsForClass = async (className, classList, userId) => {
