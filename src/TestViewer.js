@@ -190,7 +190,7 @@ function TestViewer() {
       <main className="container">
         {showScheduleEdit ? (
           <div className="w-50 mx-auto mt-4">
-            <label className="form-label">Edit Your Class Schedule</label>
+            <label className="form-label">Edit Your Class Selections</label>
             <div>
               {scheduleOptions.map((cls, idx) => (
                 <div className="form-check" key={idx}>
@@ -214,7 +214,7 @@ function TestViewer() {
                 onClick={handleSaveSchedule}
                 disabled={scheduleClasses.length === 0}
               >
-                Save Schedule
+                Save Selections
               </button>
               <button
                 className="btn btn-outline-secondary"
@@ -295,7 +295,7 @@ function TestViewer() {
                 Change Class
               </button>
               <button className="btn btn-info" onClick={() => setShowScheduleEdit(true)}>
-                Edit Class Schedule
+                Edit Class Selections
               </button>
               <button className="btn btn-danger" onClick={handleLogout}>
                 Logout
