@@ -1,3 +1,5 @@
+// Students can sign up here using email/password or Google sign-in. After signing up, they are redirected to the test viewer.
+
 import React, { useState } from "react";
 import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, db, googleProvider } from "./firebase";

@@ -1,3 +1,5 @@
+// Students can either log in or sign up from this route
+
 import React from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Link } from "react-router-dom";

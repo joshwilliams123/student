@@ -1,3 +1,6 @@
+// Students can log in here using email/password or Google sign-in. They also can reset their password if needed.
+// After login, if they have classes, they select one to proceed to the test viewer.
+
 import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,

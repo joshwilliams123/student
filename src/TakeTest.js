@@ -1,3 +1,6 @@
+// Students can take a test here, and see their score immediately after submitting.
+// Their answers and time spent on each question are recorded and saved to Firebase.
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "./firebase";

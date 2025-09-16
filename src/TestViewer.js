@@ -1,3 +1,5 @@
+// Students can view available tests for their selected class, take tests, and see their scores.
+
 import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
 import {
