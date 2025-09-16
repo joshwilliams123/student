@@ -314,7 +314,7 @@ function TakeTest() {
                   <img
                     src={test.questions[currentQuestion].questionImageUrl}
                     alt={`Question ${currentQuestion + 1}`}
-                    style={{ maxWidth: "70%", height: "auto" }}
+                    style={{ maxWidth: "60%", height: "auto" }}
                   />
                 </div>
               )}
@@ -340,7 +340,7 @@ function TakeTest() {
                         <img
                           src={test.questions[currentQuestion].choiceImages[i]}
                           alt={`Choice ${i + 1}`}
-                          style={{ maxWidth: "100px", height: "auto", marginRight: "10px" }}
+                          style={{ maxWidth: "300px", height: "auto", marginRight: "10px" }}
                         />
                       )}
                   </label>
