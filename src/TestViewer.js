@@ -42,19 +42,28 @@ function TestViewer() {
           ...doc.data(),
         }));
         setAllClasses(classList);
-        setScheduleOptions(classList.map(c => c.className || c.name));
+        
+        // Sort schedule options alphabetically
+        const sortedScheduleOptions = classList
+          .map(c => c.className || c.name)
+          .sort((a, b) => a.localeCompare(b));
+        setScheduleOptions(sortedScheduleOptions);
 
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           const classes = userDoc.data().classes || [];
-          setUserClasses(classes);
-          setScheduleClasses(classes);
+          // Sort user classes alphabetically
+          const sortedUserClasses = [...classes].sort((a, b) => a.localeCompare(b));
+          const sortedScheduleClasses = [...classes].sort((a, b) => a.localeCompare(b));
+          
+          setUserClasses(sortedUserClasses);
+          setScheduleClasses(sortedScheduleClasses);
 
-          if (classes.length === 0) return;
+          if (sortedUserClasses.length === 0) return;
 
           let storedClass = localStorage.getItem("studentClassName");
-          if (!storedClass || !classes.includes(storedClass)) {
-            storedClass = classes[0];
+          if (!storedClass || !sortedUserClasses.includes(storedClass)) {
+            storedClass = sortedUserClasses[0];
             localStorage.setItem("studentClassName", storedClass);
             setSelectedClass(storedClass);
           }
@@ -133,26 +142,30 @@ function TestViewer() {
   };
 
   const handleScheduleChange = (cls) => {
-    setScheduleClasses((prev) =>
-      prev.includes(cls)
+    setScheduleClasses((prev) => {
+      const newClasses = prev.includes(cls)
         ? prev.filter((c) => c !== cls)
-        : [...prev, cls]
-    );
+        : [...prev, cls];
+      
+      return newClasses.sort((a, b) => a.localeCompare(b));
+    });
   };
 
   const handleSaveSchedule = async () => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (user) {
+      const sortedScheduleClasses = [...scheduleClasses].sort((a, b) => a.localeCompare(b));
+      
       await updateDoc(firestoreDoc(db, "users", user.uid), {
-        classes: scheduleClasses,
+        classes: sortedScheduleClasses,
       });
-      setUserClasses(scheduleClasses);
+      setUserClasses(sortedScheduleClasses);
       setShowScheduleEdit(false);
 
-      if (scheduleClasses.length > 0) {
-        localStorage.setItem("studentClassName", scheduleClasses[0]);
-        setSelectedClass(scheduleClasses[0]);
+      if (sortedScheduleClasses.length > 0) {
+        localStorage.setItem("studentClassName", sortedScheduleClasses[0]);
+        setSelectedClass(sortedScheduleClasses[0]);
       } else {
         localStorage.removeItem("studentClassName");
         setSelectedClass("");

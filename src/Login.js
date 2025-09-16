@@ -61,9 +61,10 @@ const Login = () => {
     const userDoc = await getDoc(doc(db, "users", user.uid));
     if (userDoc.exists()) {
       const classes = userDoc.data().classes || [];
-      setUserClasses(classes);
+      const sortedClasses = [...classes].sort((a, b) => a.localeCompare(b));
+      setUserClasses(sortedClasses);
 
-      if (classes.length === 0) {
+      if (sortedClasses.length === 0) {
         navigate("/test-viewer");
       } else {
         setShowClassSelect(true);
